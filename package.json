@@ -1,7 +1,7 @@
 {
   "name": "deepseek",
   "version": "0.1.0",
-   "type" : "module",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -11,10 +11,11 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.23.1",
+    "mongoose": "^8.16.1",
     "next": "15.3.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-   
+    "react-dom": "^19.0.0",
+    "svix": "^1.68.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
