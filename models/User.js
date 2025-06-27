@@ -15,8 +15,7 @@ const userSchema = new mongoose.Schema({
      image: {
           type: String,
           required: false,
-     },
-     {timestamps: true}
-);
+     }
+}, { timestamps: true });
 const User = mongoose.models.User || mongoose.model("User", userSchema);
 export default User;
