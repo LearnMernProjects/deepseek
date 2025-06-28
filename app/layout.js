@@ -3,7 +3,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { AppContextProvider } from "@/context/AppContext";
 import { Toaster } from "react-hot-toast";
-
+import "./prism.css";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],

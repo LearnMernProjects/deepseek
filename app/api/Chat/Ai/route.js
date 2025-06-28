@@ -128,29 +128,29 @@ export async function POST(request) {
       } catch (apiError) {
         console.error("❌ DeepSeek API error:", apiError);
         
-        // Handle specific billing errors - return demo response instead of error
-        if (apiError.message && (apiError.message.includes("402") || apiError.message.includes("Insufficient Balance"))) {
-          console.log("💰 Billing issue detected - providing demo response");
-          
-          // Create a realistic demo response based on the prompt
-          const demoResponse = createDemoResponse(prompt);
-          
+        // For billing errors (402), provide clear message
+        if (apiError.message && apiError.message.includes("402")) {
           return NextResponse.json(
             {
-              success: true,
-              message: "Demo response (billing issue)",
-              data: demoResponse,
+              success: false,
+              message: "DeepSeek API credits exhausted",
             },
-            { headers: corsHeaders() }
+            { headers: corsHeaders(), status: 402 }
           );
         }
-        
+
+        // For other errors, return simple error response
         return NextResponse.json(
           {
             success: false,
-            message: "AI service error: " + apiError.message,
+            message: "Failed to process server response",
+            error: {
+              code: "unknown",
+              message: apiError.message || "An unknown error occurred",
+              details: null
+            }
           },
-          { headers: corsHeaders() }
+          { headers: corsHeaders(), status: 500 }
         );
       }
     }

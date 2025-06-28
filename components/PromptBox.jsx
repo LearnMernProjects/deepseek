@@ -4,12 +4,13 @@ import React, { useState } from 'react'
 import Image from 'next/image'
 import { assets } from '@/public/assets/assets'
 import { useAppContext } from '@/context/AppContext'
-import { useClerk } from '@clerk/nextjs'
+import { useAuth } from '@clerk/nextjs'
 import toast from 'react-hot-toast'
 
 const PromptBox = ({ isLoading, setIsLoading }) => {
   const [prompt, setPrompt] = useState('')
   const { user, chats, setChats, setSelectedChat, selectedChat } = useAppContext()
+  const { getToken } = useAuth();
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -25,9 +26,6 @@ const PromptBox = ({ isLoading, setIsLoading }) => {
     if (!promptCopy) return toast.error("Login to give a prompt")
     if (isLoading) return toast.error("Already sending a prompt")
     if (!selectedChat) return toast.error("No chat selected")
-
-    console.log("🚀 Sending prompt:", promptCopy);
-    console.log("💬 Selected chat:", selectedChat);
 
     setIsLoading(true)
     setPrompt('')
@@ -47,79 +45,65 @@ const PromptBox = ({ isLoading, setIsLoading }) => {
     )
 
     try {
-      console.log("📡 Making API call to /api/Chat/Ai");
-      console.log("📤 Request body:", { chatId: selectedChat._id, prompt: promptCopy });
-      
+      if (!user) {
+        toast.error("Please login to use the chat feature");
+        setPrompt(promptCopy);
+        throw new Error("Unauthorized");
+      }
+
+      // Get the token from Clerk
+      const token = await getToken();
+
       const res = await fetch('/api/Chat/Ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ chatId: selectedChat._id, prompt: promptCopy }),
       })
 
-      console.log("📥 API response status:", res.status);
-      console.log("📥 API response headers:", Object.fromEntries(res.headers.entries()));
-      
-      if (!res.ok) {
-        console.error("❌ HTTP error:", res.status, res.statusText);
-        const errorText = await res.text();
-        console.error("❌ Error response body:", errorText);
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const data = await res.json();
+
+      if (!data.success) {
+        toast.error(data.message || "Error occurred");
+        setPrompt(promptCopy);
+        throw new Error(data.message || "Failed to process server response");
       }
-      
-      const data = await res.json()
-      console.log("📄 API response data:", data);
 
-      if (data.success) {
-        const message = data.data.content
-        console.log("🤖 AI response:", message);
-        console.log("📄 Full response data:", data.data);
-        
-        const messageTokens = message.split(' ')
+      const message = data.data.content;
+      const messageTokens = message.split(' ');
 
-        let assistantMessage = {
-          role: "assistant",
-          content: "",
-          Timestamp: Date.now(),
-        }
+      let assistantMessage = {
+        role: "assistant",
+        content: "",
+        Timestamp: Date.now(),
+      };
 
-        // Show typing effect
-        messageTokens.forEach((_, index) => {
-          setTimeout(() => {
-            assistantMessage.content = messageTokens.slice(0, index + 1).join(' ')
-            setSelectedChat(prev => {
-              const updatedMessages = [...prev.messages.slice(0, -1), assistantMessage]
-              return { ...prev, messages: updatedMessages }
-            })
-          }, index * 100)
-        })
-
-        setChats(prev =>
-          prev.map(chat =>
-            chat._id === selectedChat._id
-              ? { ...chat, messages: [...chat.messages, data.data] }
-              : chat
-          )
-        )
-
-        setSelectedChat(prev => ({
-          ...prev,
-          messages: [...prev.messages, data.data],
-        }))
-      } else {
-        console.error("❌ API error:", data.message);
-        console.error("❌ Full error response:", data);
-        console.error("❌ Response status:", res.status);
-        console.error("❌ Response headers:", Object.fromEntries(res.headers.entries()));
-        toast.error(data.message || "Error occurred")
-        setPrompt(promptCopy)
-      }
-    } catch (error) {
-      console.error("❌ Network error:", error);
-      console.error("❌ Error details:", {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
+      // Show typing effect
+      messageTokens.forEach((_, index) => {
+        setTimeout(() => {
+          assistantMessage.content = messageTokens.slice(0, index + 1).join(' ');
+          setSelectedChat(prev => {
+            const updatedMessages = [...prev.messages.slice(0, -1), assistantMessage];
+            return { ...prev, messages: updatedMessages };
+          });
+        }, index * 100);
       });
+
+      setChats(prev =>
+        prev.map(chat =>
+          chat._id === selectedChat._id
+            ? { ...chat, messages: [...chat.messages, data.data] }
+            : chat
+        )
+      );
+
+      setSelectedChat(prev => ({
+        ...prev,
+        messages: [...prev.messages, data.data],
+      }));
+    } catch (error) {
       toast.error(error.message)
       setPrompt(promptCopy)
     } finally {
@@ -127,10 +111,19 @@ const PromptBox = ({ isLoading, setIsLoading }) => {
     }
   }
 
+  // Null check for selectedChat
+  if (!selectedChat) {
+    return (
+      <div className="text-white/60 p-4">
+        Select or create a chat to start messaging.
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={sendPrompt}
-      className={`w-full ${false ? "max-w-3xl" : "max-w-2xl"} bg-[#404045]
+      className={`w-full ${selectedChat.messages && selectedChat.messages.length > 0 ? "max-w-3xl" : "max-w-2xl"} bg-[#404045]
      p-4 rounded-3xl mt-4 transition-all duration-300`}
     >
       <textarea
@@ -163,5 +156,4 @@ const PromptBox = ({ isLoading, setIsLoading }) => {
     </form>
   )
 }
-
-export default PromptBox
+export default PromptBox;
